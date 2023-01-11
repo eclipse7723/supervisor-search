@@ -1,14 +1,7 @@
 from django.db import models
 from django.contrib.auth import models as auth_models
-# from django.shortcuts import reverse
 from django.core.exceptions import ValidationError
-
-# tips (see docs: https://docs.djangoproject.com/en/4.0/topics/db/models/):
-#   - Model.objects : all modelObjects methods
-#       - create : create object and auto save to db
-#       - get : returns object (raise error if not found or found more then one)
-#       - filter : returns objects
-#   - modelObject.save()  : saves model object to db
+from django.utils import timezone
 
 
 # ----- University Structure -------------------------------------------------------------------------------------------
@@ -94,3 +87,37 @@ class Teacher(BaseRole):
     position = models.CharField(max_length=64, blank=True, null=True)
     description = models.CharField(max_length=512, blank=True, null=True)
 
+
+# ----- Polls Structure ------------------------------------------------------------------------------------------------
+
+
+class Poll(models.Model):
+    teacher_id = models.OneToOneField('User', on_delete=models.DO_NOTHING)
+    cathedra_id = models.ForeignKey('Cathedra', on_delete=models.DO_NOTHING)
+    max_students = models.PositiveIntegerField(default=3)
+    is_active = models.BooleanField(default=True)
+
+
+class WaitList(models.Model):
+    PENDING = 0
+    ACCEPTED = 1
+    DECLINED = 2
+    STATUSES = [
+        (PENDING, "Pending"),
+        (ACCEPTED, "Accepted"),
+        (DECLINED, "Declined")
+    ]
+
+    student_id = models.ForeignKey('User', on_delete=models.DO_NOTHING)
+    poll_id = models.ForeignKey('Poll', on_delete=models.DO_NOTHING)
+    date_created = models.DateTimeField(default=timezone.now)
+    date_closed = models.DateTimeField(blank=True, null=True)
+    status = models.CharField(choices=STATUSES, default=PENDING)
+
+    def close(self, status):
+        if status not in [self.ACCEPTED, self.DECLINED]:
+            return False
+        self.status = status
+        self.date_closed = timezone.now()
+        self.save(update_fields=["date_closed", "status"])
+        return True
